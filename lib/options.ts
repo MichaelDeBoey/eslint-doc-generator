@@ -49,6 +49,9 @@ const DEFAULT_RULE_DOC_TITLE_FORMAT: RuleDocTitleFormat = 'prefix-name';
 const DEFAULT_CONFIG_FORMAT: ConfigFormat = 'name';
 
 export const OPTION_DEFAULTS = {
+  [OPTION_TYPE.AI]: false,
+  [OPTION_TYPE.AI_MODEL]: undefined,
+  [OPTION_TYPE.AI_PROVIDER]: undefined,
   [OPTION_TYPE.CHECK]: false,
   [OPTION_TYPE.CONFIG_EMOJI]: [],
   [OPTION_TYPE.CONFIG_FORMAT]: DEFAULT_CONFIG_FORMAT,
@@ -73,6 +76,7 @@ export const OPTION_DEFAULTS = {
     .filter(([_col, enabled]) => enabled)
     .map(([col]) => col),
   [OPTION_TYPE.RULE_LIST_SPLIT]: [],
+  [OPTION_TYPE.SUGGEST_EMOJIS]: false,
   [OPTION_TYPE.URL_CONFIGS]: undefined,
   [OPTION_TYPE.URL_RULE_DOC]: undefined,
 } satisfies Record<OPTION_TYPE, unknown>; // Satisfies is used to ensure all options are included without losing type information.
@@ -85,6 +89,10 @@ export function getResolvedOptions(
   plugin: Plugin,
   userOptions: GenerateOptions = {},
 ) {
+  const ai = userOptions.ai ?? OPTION_DEFAULTS[OPTION_TYPE.AI];
+  const aiModel = userOptions.aiModel ?? OPTION_DEFAULTS[OPTION_TYPE.AI_MODEL];
+  const aiProvider =
+    userOptions.aiProvider ?? OPTION_DEFAULTS[OPTION_TYPE.AI_PROVIDER];
   const check = userOptions.check ?? OPTION_DEFAULTS[OPTION_TYPE.CHECK];
   const configEmoji =
     userOptions.configEmoji ?? OPTION_DEFAULTS[OPTION_TYPE.CONFIG_EMOJI];
@@ -133,12 +141,17 @@ export function getResolvedOptions(
           userOptions.ruleListSplit,
           OPTION_DEFAULTS[OPTION_TYPE.RULE_LIST_SPLIT],
         );
+  const suggestEmojis =
+    userOptions.suggestEmojis ?? OPTION_DEFAULTS[OPTION_TYPE.SUGGEST_EMOJIS];
   const urlConfigs =
     userOptions.urlConfigs ?? OPTION_DEFAULTS[OPTION_TYPE.URL_CONFIGS];
   const urlRuleDoc =
     userOptions.urlRuleDoc ?? OPTION_DEFAULTS[OPTION_TYPE.URL_RULE_DOC];
 
   return {
+    ai,
+    aiModel,
+    aiProvider,
     check,
     configEmojis,
     configFormat,
@@ -155,6 +168,7 @@ export function getResolvedOptions(
     ruleDocTitleFormat,
     ruleListColumns,
     ruleListSplit,
+    suggestEmojis,
     urlConfigs,
     urlRuleDoc,
   };

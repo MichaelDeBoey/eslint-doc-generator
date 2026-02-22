@@ -34,6 +34,7 @@ Also performs [configurable](#configuration-options) section consistency checks 
   - [Column and notice types](#column-and-notice-types)
   - [`--config-format`](#--config-format)
   - [`--rule-doc-title-format`](#--rule-doc-title-format)
+  - [`--suggest-emojis`](#--suggest-emojis)
   - [Configuration file](#configuration-file)
   - [Badges](#badges)
 - [Compatibility](#compatibility)
@@ -182,6 +183,9 @@ There's also a `postprocess` option that's only available via a [config file](#c
 
 | Name | Description | Default |
 | :-- | :-- | :-- |
+| `--ai` | Whether to use AI for AI-enabled features. | `false` |
+| `--ai-model` | AI model to use for AI-enabled features. | Provider default model |
+| `--ai-provider` | AI provider to use for AI-enabled features (`anthropic`, `groq`, `openai`, `openrouter`, `together`, `vercelaigateway`, or `xai`). | Defaults to the specified provider environment variable. Required if multiple provider API keys are present. |
 | `--check` | Whether to check for and fail if there is a diff. Any diff will be displayed but no output will be written to files. Typically used during CI. | `false` |
 | `--config-emoji` | Custom emoji to use for a config. Format is `config-name,emoji`. Option can be repeated. | Default emojis are provided for [common configs](./lib/emojis.ts). Configs without emojis will cause an error; use `--ignore-config` to exclude them. See [Badges](#badges) for using custom badges as emojis. |
 | `--config-format` | The format to use for config names. See choices in below [table](#--config-format). | `name` |
@@ -197,6 +201,7 @@ There's also a `postprocess` option that's only available via a [config file](#c
 | `--rule-doc-title-format` | The format to use for rule doc titles. See choices in below [table](#--rule-doc-title-format). | `prefix-name` |
 | `--rule-list-columns` | Ordered, comma-separated list of columns to display in rule list. Empty columns will be hidden. See choices in below [table](#column-and-notice-types). | `name`, `description`, `configsError`, `configsWarn`, `configsOff`, `fixable`, `hasSuggestions`, `requiresTypeChecking`, `deprecated` |
 | `--rule-list-split` | Rule property(s) to split the rules list by. A separate list and header will be created for each value. Example: `meta.type`. A function can also be provided for this option via a [config file](#configuration-file). | |
+| `--suggest-emojis` | Whether to suggest emojis for configs and print them in a table. Can be paired with `--ai`. | `false` |
 | `--url-configs` | Link to documentation about the ESLint configurations exported by the plugin. | |
 | `--url-rule-doc` | Link to documentation for each rule. Useful when it differs from the rule doc path on disk (e.g. custom documentation site in use). Use `{name}` placeholder for the rule name. A function can also be provided for this option via a [config file](#configuration-file). | |
 
@@ -241,6 +246,39 @@ Where `no-foo` is the rule name, `Disallow use of foo` is the rule description, 
 | `desc-parens-prefix-name` | `# Disallow use of foo (test/no-foo)` |
 | `name` | `# no-foo` |
 | `prefix-name` (default) | `# test/no-foo` |
+
+### `--suggest-emojis`
+
+When `--suggest-emojis` is enabled, the tool prints a table of suggested emojis for all exported configs and exits without modifying files.
+
+Example output:
+
+| Config | Emoji |
+| :-- | :-- |
+| `recommended` | `✅` |
+| `strict` | `🔒` |
+| `typescript` | `⌨️` |
+
+Generation strategy:
+
+- `--suggest-emojis` uses deterministic local suggestions only
+- `--suggest-emojis --ai` uses an external provider
+
+When `--ai` is used, suggestions will be generated using an external provider based on:
+
+- The provider environment variable specified
+- (optionally) `--ai-provider`
+- (optionally) `--ai-model`
+
+Supported provider environment variables:
+
+- `ANTHROPIC_API_KEY`
+- `GROQ_API_KEY`
+- `OPENAI_API_KEY`
+- `OPENROUTER_API_KEY`
+- `TOGETHER_API_KEY`
+- `VERCEL_AI_GATEWAY_API_KEY`
+- `XAI_API_KEY`
 
 ### Configuration file
 

@@ -61,6 +61,17 @@ export type RuleNamesAndRules = readonly (readonly [
  */
 export type ConfigEmojis = readonly { config: string; emoji: string }[];
 
+export const AI_PROVIDER = {
+  ANTHROPIC: 'anthropic',
+  GROQ: 'groq',
+  OPENAI: 'openai',
+  OPENROUTER: 'openrouter',
+  TOGETHER: 'together',
+  VERCEL_AI_GATEWAY: 'vercelaigateway',
+  XAI: 'xai',
+} as const;
+export type AI_PROVIDER = (typeof AI_PROVIDER)[keyof typeof AI_PROVIDER];
+
 /**
  * Rule doc notices.
  */
@@ -100,6 +111,9 @@ export type COLUMN_TYPE = (typeof COLUMN_TYPE)[keyof typeof COLUMN_TYPE];
  * CLI/config file options.
  */
 export const OPTION_TYPE = {
+  AI: 'ai',
+  AI_MODEL: 'aiModel',
+  AI_PROVIDER: 'aiProvider',
   CHECK: 'check',
   CONFIG_EMOJI: 'configEmoji',
   CONFIG_FORMAT: 'configFormat',
@@ -116,6 +130,7 @@ export const OPTION_TYPE = {
   RULE_DOC_TITLE_FORMAT: 'ruleDocTitleFormat',
   RULE_LIST_COLUMNS: 'ruleListColumns',
   RULE_LIST_SPLIT: 'ruleListSplit',
+  SUGGEST_EMOJIS: 'suggestEmojis',
   URL_CONFIGS: 'urlConfigs',
   URL_RULE_DOC: 'urlRuleDoc',
 } as const;
@@ -155,6 +170,19 @@ export type PathRuleDocFunction = (name: string) => string;
 // JSDocs for options should be kept in sync with README.md and the CLI runner in cli.ts.
 /** The type for the config file (e.g. `.eslint-doc-generatorrc.js`) and internal `generate()` function. */
 export type GenerateOptions = {
+  /**
+   * Whether to use AI for AI-capable features.
+   * For example with `suggestEmojis`, enables provider-backed suggestions.
+   * Default: `false`.
+   */
+  readonly ai?: boolean;
+
+  /** Optional model override used by any AI-enabled feature. If omitted, the provider default model is used. */
+  readonly aiModel?: string;
+
+  /** AI provider used by any AI-enabled feature. Required if multiple provider API keys are present in the environment. */
+  readonly aiProvider?: AI_PROVIDER;
+
   /**
    * Whether to check for and fail if there is a diff.
    * Any diff will be displayed but no output will be written to files.
@@ -240,6 +268,9 @@ export type GenerateOptions = {
    * Example: `meta.type`.
    */
   readonly ruleListSplit?: string | readonly string[] | RuleListSplitFunction;
+
+  /** Whether to suggest emojis for configs and print a table of suggestions. Can be paired with `--ai`. Default: `false`. */
+  readonly suggestEmojis?: boolean;
 
   /** Link to documentation about the ESLint configurations exported by the plugin. */
   readonly urlConfigs?: string;

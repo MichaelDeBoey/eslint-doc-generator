@@ -4,7 +4,7 @@ import { OPTION_DEFAULTS } from './options.js';
 import { cosmiconfig } from 'cosmiconfig';
 import Ajv from 'ajv';
 import merge from 'deepmerge';
-import { COLUMN_TYPE, NOTICE_TYPE, OPTION_TYPE } from './types.js';
+import { AI_PROVIDER, COLUMN_TYPE, NOTICE_TYPE, OPTION_TYPE } from './types.js';
 import type { GenerateOptions } from './types.js';
 import { getCurrentPackageVersion } from './package-json.js';
 import { boolean, isBooleanable } from './boolean.js';
@@ -86,6 +86,12 @@ async function loadConfigFileOptions(): Promise<GenerateOptions> {
     };
 
     const properties: { [key in OPTION_TYPE]: unknown } = {
+      ai: { type: 'boolean' },
+      aiModel: { type: 'string' },
+      aiProvider: {
+        type: 'string',
+        enum: Object.values(AI_PROVIDER),
+      },
       check: { type: 'boolean' },
       configEmoji: schemaConfigEmoji,
       configFormat: { type: 'string' },
@@ -118,6 +124,7 @@ async function loadConfigFileOptions(): Promise<GenerateOptions> {
               /* Functions are allowed but JSON Schema can't validate them so no-op in this case. */
             }
           : { anyOf: [{ type: 'string' }, schemaStringArray] },
+      suggestEmojis: { type: 'boolean' },
       urlConfigs: { type: 'string' },
       urlRuleDoc:
         /* istanbul ignore next -- TODO: haven't tested JavaScript config files yet https://github.com/eslint-community/eslint-doc-generator/issues/366 */
@@ -185,6 +192,25 @@ export async function run(
     .version(await getCurrentPackageVersion())
     .addArgument(
       new Argument('[path]', 'path to ESLint plugin root').default('.'),
+    )
+    .option(
+      '--ai [boolean]',
+      `(optional) Whether to use AI for AI-enabled features. (default: ${String(
+        OPTION_DEFAULTS[OPTION_TYPE.AI],
+      )})`,
+      parseBoolean,
+    )
+    .addOption(
+      new Option(
+        '--ai-model <model>',
+        '(optional) AI model to use for AI-enabled features. Defaults to the selected provider default model.',
+      ),
+    )
+    .addOption(
+      new Option(
+        '--ai-provider <provider>',
+        '(optional) AI provider to use for AI-enabled features. Required if multiple provider API keys are present in the environment.',
+      ).choices(Object.values(AI_PROVIDER)),
     )
     .option(
       '--check [boolean]',
@@ -293,6 +319,13 @@ export async function run(
       '(optional) Rule property(s) to split the rules list by. A separate list and header will be created for each value. Example: `meta.type`. To specify a function, use a JavaScript-based config file.',
       collectCSV,
       [],
+    )
+    .option(
+      '--suggest-emojis [boolean]',
+      `(optional) Whether to suggest emojis for configs and print them in a table. Can be paired with \`--ai\`. (default: ${String(
+        OPTION_DEFAULTS[OPTION_TYPE.SUGGEST_EMOJIS],
+      )})`,
+      parseBoolean,
     )
     .option(
       '--url-configs <url>',
