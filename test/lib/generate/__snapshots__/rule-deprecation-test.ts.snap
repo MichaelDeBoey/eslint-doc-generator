@@ -1,13 +1,48 @@
 // Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
 
+exports[`generate (deprecated rules) > DeprecatedInfo with only deprecatedSince (no availableUntil) > displays deprecatedSince without availableUntil 1`] = `
+"# test/no-foo
+
+📝 Description.
+
+❌ This rule has been deprecated since v3.0.0.
+
+<!-- end auto-generated rule header -->
+"
+`;
+
+exports[`generate (deprecated rules) > DeprecatedInfo with only invalid replacedBy entries preceding a valid one > does not produce an erroneous "and" prefix when only one valid replacement remains 1`] = `
+"# test/no-foo
+
+📝 Description.
+
+❌ This rule is deprecated. It was replaced by [\`test/no-bar\`](no-bar.md).
+
+<!-- end auto-generated rule header -->
+"
+`;
+
+exports[`generate (deprecated rules) > DeprecatedInfo with v-prefixed version strings > does not double the v prefix 1`] = `
+"# test/no-foo
+
+📝 Description.
+
+❌ This rule has been deprecated since v7.0.0 and will be available until v13.0.0.
+
+<!-- end auto-generated rule header -->
+"
+`;
+
 exports[`generate (deprecated rules) > replaced by ESLint core rule > uses correct replacement rule link 1`] = `
 "<!-- begin auto-generated rules list -->
 
 ❌ Deprecated.
 
-| Name                           | Description  | ❌  |
-| :----------------------------- | :----------- | :- |
-| [no-foo](docs/rules/no-foo.md) | Description. | ❌  |
+| Name                                   | Description  | ❌  |
+| :------------------------------------- | :----------- | :- |
+| [no-foo](docs/rules/no-foo.md)         | Description. | ❌  |
+| [prefer-bar](docs/rules/prefer-bar.md) | Description. | ❌  |
+| [prefer-foo](docs/rules/prefer-foo.md) | Description. | ❌  |
 
 <!-- end auto-generated rules list -->"
 `;
@@ -23,14 +58,38 @@ exports[`generate (deprecated rules) > replaced by ESLint core rule > uses corre
 "
 `;
 
+exports[`generate (deprecated rules) > replaced by ESLint core rule > uses correct replacement rule link 3`] = `
+"# test/prefer-foo
+
+📝 Description.
+
+❌ This rule is deprecated. It was replaced by [\`no-unused-vars\`](https://eslint.org/docs/latest/rules/no-unused-vars).
+
+<!-- end auto-generated rule header -->
+"
+`;
+
+exports[`generate (deprecated rules) > replaced by ESLint core rule > uses correct replacement rule link 4`] = `
+"# test/prefer-bar
+
+📝 Description.
+
+❌ This rule is deprecated. It was replaced by [\`no-unused-vars\`](https://eslint.org/docs/latest/rules/no-unused-vars).
+
+<!-- end auto-generated rule header -->
+"
+`;
+
 exports[`generate (deprecated rules) > replaced by third-party plugin rule > uses correct replacement rule link 1`] = `
 "<!-- begin auto-generated rules list -->
 
 ❌ Deprecated.
 
-| Name                           | Description  | ❌  |
-| :----------------------------- | :----------- | :- |
-| [no-foo](docs/rules/no-foo.md) | Description. | ❌  |
+| Name                                   | Description  | ❌  |
+| :------------------------------------- | :----------- | :- |
+| [no-foo](docs/rules/no-foo.md)         | Description. | ❌  |
+| [prefer-bar](docs/rules/prefer-bar.md) | Description. | ❌  |
+| [prefer-foo](docs/rules/prefer-foo.md) | Description. | ❌  |
 
 <!-- end auto-generated rules list -->"
 `;
@@ -46,14 +105,37 @@ exports[`generate (deprecated rules) > replaced by third-party plugin rule > use
 "
 `;
 
+exports[`generate (deprecated rules) > replaced by third-party plugin rule > uses correct replacement rule link 3`] = `
+"# test/prefer-foo
+
+📝 Description.
+
+❌ This rule is deprecated. It was replaced by \`other-plugin/no-unused-vars\`.
+
+<!-- end auto-generated rule header -->
+"
+`;
+
+exports[`generate (deprecated rules) > replaced by third-party plugin rule > uses correct replacement rule link 4`] = `
+"# test/prefer-bar
+
+📝 Description.
+
+❌ This rule is deprecated. It was replaced by \`other-plugin/no-unused-vars\` from [eslint-plugin-other-plugin](https://example.org/other-plugin).
+
+<!-- end auto-generated rule header -->
+"
+`;
+
 exports[`generate (deprecated rules) > replaced by third-party plugin rule with same rule name as one of our rules > uses correct replacement rule link 1`] = `
 "<!-- begin auto-generated rules list -->
 
 ❌ Deprecated.
 
-| Name                           | Description  | ❌  |
-| :----------------------------- | :----------- | :- |
-| [no-foo](docs/rules/no-foo.md) | Description. | ❌  |
+| Name                                   | Description  | ❌  |
+| :------------------------------------- | :----------- | :- |
+| [no-foo](docs/rules/no-foo.md)         | Description. | ❌  |
+| [prefer-foo](docs/rules/prefer-foo.md) | Description. | ❌  |
 
 <!-- end auto-generated rules list -->"
 `;
@@ -69,18 +151,31 @@ exports[`generate (deprecated rules) > replaced by third-party plugin rule with 
 "
 `;
 
+exports[`generate (deprecated rules) > replaced by third-party plugin rule with same rule name as one of our rules > uses correct replacement rule link 3`] = `
+"# test/prefer-foo
+
+📝 Description.
+
+❌ This rule is deprecated. It was replaced by \`other-plugin/prefer-foo\`.
+
+<!-- end auto-generated rule header -->
+"
+`;
+
 exports[`generate (deprecated rules) > several deprecated rules > updates the documentation 1`] = `
 "<!-- begin auto-generated rules list -->
 
 ❌ Deprecated.
 
-| Name                           | Description  | ❌  |
-| :----------------------------- | :----------- | :- |
-| [no-bar](docs/rules/no-bar.md) | Description. | ❌  |
-| [no-baz](docs/rules/no-baz.md) | Description. | ❌  |
-| [no-biz](docs/rules/no-biz.md) | Description. |    |
-| [no-boz](docs/rules/no-boz.md) | Description. | ❌  |
-| [no-foo](docs/rules/no-foo.md) | Description. | ❌  |
+| Name                                   | Description  | ❌  |
+| :------------------------------------- | :----------- | :- |
+| [no-bar](docs/rules/no-bar.md)         | Description. | ❌  |
+| [no-baz](docs/rules/no-baz.md)         | Description. | ❌  |
+| [no-biz](docs/rules/no-biz.md)         | Description. |    |
+| [no-boz](docs/rules/no-boz.md)         | Description. | ❌  |
+| [no-foo](docs/rules/no-foo.md)         | Description. | ❌  |
+| [prefer-bar](docs/rules/prefer-bar.md) | Description. | ❌  |
+| [prefer-foo](docs/rules/prefer-foo.md) | Description. | ❌  |
 
 <!-- end auto-generated rules list -->"
 `;
@@ -138,15 +233,38 @@ exports[`generate (deprecated rules) > several deprecated rules > updates the do
 "
 `;
 
+exports[`generate (deprecated rules) > several deprecated rules > updates the documentation 7`] = `
+"# test/prefer-foo
+
+📝 Description.
+
+❌ This rule has been [deprecated](https://example.org/blog/non-existant) since v1.0.0 and will be available until v2.0.0. Custom message about overall deprecation.
+
+<!-- end auto-generated rule header -->
+"
+`;
+
+exports[`generate (deprecated rules) > several deprecated rules > updates the documentation 8`] = `
+"# test/prefer-bar
+
+📝 Description.
+
+❌ This rule is deprecated. It was replaced by [\`test/no-bar\`](no-bar.md), and [\`no-baz\`](https://example.org/rules/no-baz.md) (Custom message) ([read more](https://example.org/an-external-url)).
+
+<!-- end auto-generated rule header -->
+"
+`;
+
 exports[`generate (deprecated rules) > using prefix ahead of replacement rule name > uses correct replacement rule link 1`] = `
 "<!-- begin auto-generated rules list -->
 
 ❌ Deprecated.
 
-| Name                           | Description  | ❌  |
-| :----------------------------- | :----------- | :- |
-| [no-bar](docs/rules/no-bar.md) | Description. |    |
-| [no-foo](docs/rules/no-foo.md) | Description. | ❌  |
+| Name                                   | Description  | ❌  |
+| :------------------------------------- | :----------- | :- |
+| [no-bar](docs/rules/no-bar.md)         | Description. |    |
+| [no-foo](docs/rules/no-foo.md)         | Description. | ❌  |
+| [prefer-foo](docs/rules/prefer-foo.md) | Description. | ❌  |
 
 <!-- end auto-generated rules list -->"
 `;
@@ -171,15 +289,28 @@ exports[`generate (deprecated rules) > using prefix ahead of replacement rule na
 "
 `;
 
+exports[`generate (deprecated rules) > using prefix ahead of replacement rule name > uses correct replacement rule link 4`] = `
+"# test/prefer-foo
+
+📝 Description.
+
+❌ This rule is deprecated. It was replaced by [\`test/no-bar\`](no-bar.md).
+
+<!-- end auto-generated rule header -->
+"
+`;
+
 exports[`generate (deprecated rules) > with --path-rule-doc > has the correct links, especially replacement rule link 1`] = `
 "<!-- begin auto-generated rules list -->
 
 ❌ Deprecated.
 
-| Name                                              | Description  | ❌  |
-| :------------------------------------------------ | :----------- | :- |
-| [category/no-bar](docs/category/no-bar/README.md) | Description. | ❌  |
-| [category/no-foo](docs/category/no-foo/README.md) | Description. | ❌  |
+| Name                                                      | Description  | ❌  |
+| :-------------------------------------------------------- | :----------- | :- |
+| [category/no-bar](docs/category/no-bar/README.md)         | Description. | ❌  |
+| [category/no-foo](docs/category/no-foo/README.md)         | Description. | ❌  |
+| [category/prefer-bar](docs/category/prefer-bar/README.md) | Description. | ❌  |
+| [category/prefer-foo](docs/category/prefer-foo/README.md) | Description. | ❌  |
 
 <!-- end auto-generated rules list -->"
 `;
@@ -206,15 +337,39 @@ exports[`generate (deprecated rules) > with --path-rule-doc > has the correct li
 "
 `;
 
+exports[`generate (deprecated rules) > with --path-rule-doc > has the correct links, especially replacement rule link 4`] = `
+"# test/category/prefer-foo
+
+📝 Description.
+
+❌ This rule is deprecated. It was replaced by [\`test/category/prefer-bar\`](../prefer-bar/README.md).
+
+<!-- end auto-generated rule header -->
+"
+`;
+
+exports[`generate (deprecated rules) > with --path-rule-doc > has the correct links, especially replacement rule link 5`] = `
+"# test/category/prefer-bar
+
+📝 Description.
+
+❌ This rule is deprecated. It was replaced by [\`test/category/prefer-foo\`](../prefer-foo/README.md).
+
+<!-- end auto-generated rule header -->
+"
+`;
+
 exports[`generate (deprecated rules) > with nested rule names > has the correct links, especially replacement rule link 1`] = `
 "<!-- begin auto-generated rules list -->
 
 ❌ Deprecated.
 
-| Name                                             | Description  | ❌  |
-| :----------------------------------------------- | :----------- | :- |
-| [category/no-bar](docs/rules/category/no-bar.md) | Description. | ❌  |
-| [category/no-foo](docs/rules/category/no-foo.md) | Description. | ❌  |
+| Name                                                     | Description  | ❌  |
+| :------------------------------------------------------- | :----------- | :- |
+| [category/no-bar](docs/rules/category/no-bar.md)         | Description. | ❌  |
+| [category/no-foo](docs/rules/category/no-foo.md)         | Description. | ❌  |
+| [category/prefer-bar](docs/rules/category/prefer-bar.md) | Description. | ❌  |
+| [category/prefer-foo](docs/rules/category/prefer-foo.md) | Description. | ❌  |
 
 <!-- end auto-generated rules list -->"
 `;
@@ -241,6 +396,28 @@ exports[`generate (deprecated rules) > with nested rule names > has the correct 
 "
 `;
 
+exports[`generate (deprecated rules) > with nested rule names > has the correct links, especially replacement rule link 4`] = `
+"# test/category/prefer-foo
+
+📝 Description.
+
+❌ This rule is deprecated. It was replaced by [\`test/category/no-bar\`](no-bar.md).
+
+<!-- end auto-generated rule header -->
+"
+`;
+
+exports[`generate (deprecated rules) > with nested rule names > has the correct links, especially replacement rule link 5`] = `
+"# test/category/prefer-bar
+
+📝 Description.
+
+❌ This rule is deprecated. It was replaced by [\`test/category/no-foo\`](no-foo.md).
+
+<!-- end auto-generated rule header -->
+"
+`;
+
 exports[`generate (deprecated rules) > with no rule doc but --ignore-deprecated-rules > omits the rule from the README and does not try to update its non-existent rule doc 1`] = `
 "<!-- begin auto-generated rules list -->
 
@@ -248,4 +425,51 @@ exports[`generate (deprecated rules) > with no rule doc but --ignore-deprecated-
 | :--- |
 
 <!-- end auto-generated rules list -->"
+`;
+
+exports[`generate (deprecated rules) > with the object type \`DeprecatedInfo\` > displays correct information 1`] = `
+"<!-- begin auto-generated rules list -->
+
+❌ Deprecated.
+
+| Name                           | Description  | ❌  |
+| :----------------------------- | :----------- | :- |
+| [no-bar](docs/rules/no-bar.md) | Description. | ❌  |
+| [no-baz](docs/rules/no-baz.md) | Description. | ❌  |
+| [no-foo](docs/rules/no-foo.md) | Description. | ❌  |
+
+<!-- end auto-generated rules list -->"
+`;
+
+exports[`generate (deprecated rules) > with the object type \`DeprecatedInfo\` > displays correct information 2`] = `
+"# test/no-foo
+
+📝 Description.
+
+❌ This rule has been [deprecated](https://example.org/blog/non-existant) since v1.0.0 and will be available until v2.0.0. Custom message about overall deprecation.
+
+<!-- end auto-generated rule header -->
+"
+`;
+
+exports[`generate (deprecated rules) > with the object type \`DeprecatedInfo\` > displays correct information 3`] = `
+"# test/no-bar
+
+📝 Description.
+
+❌ This rule is deprecated and will be available until v2.0.0. Custom message about overall deprecation.
+
+<!-- end auto-generated rule header -->
+"
+`;
+
+exports[`generate (deprecated rules) > with the object type \`DeprecatedInfo\` > displays correct information 4`] = `
+"# test/no-baz
+
+📝 Description.
+
+❌ This rule is deprecated. It was replaced by [\`test/no-bar\`](no-bar.md), [\`no-baz\`](https://example.org/rules/no-baz.md), [\`test/no-baz\`](no-baz.md) (Custom message) ([read more](https://example.org/changelog.md)), and [\`@stylistic/indent\`](https://eslint.style/rules/indent) from [@sytlistic/eslint-plugin](https://eslint.style/).
+
+<!-- end auto-generated rule header -->
+"
 `;

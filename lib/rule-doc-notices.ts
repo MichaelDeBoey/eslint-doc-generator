@@ -12,12 +12,16 @@ import {
 import { findConfigEmoji, getConfigsForRule } from './plugin-configs.js';
 import { getPluginRoot } from './package-json.js';
 import { SEVERITY_TYPE, NOTICE_TYPE } from './types.js';
-import type { RuleModule } from './types.js';
+import type { RuleModule, DeprecatedInfo, ReplacedByInfo } from './types.js';
 import type { RULE_TYPE } from './rule-type.js';
 import { RULE_TYPE_MESSAGES_NOTICES } from './rule-type.js';
 import type { RuleDocTitleFormat } from './rule-doc-title-format.js';
 import { hasOptions } from './rule-options.js';
-import { getLinkToRule, replaceRulePlaceholder } from './rule-link.js';
+import {
+  getLinkToRule,
+  getMarkdownLink,
+  replaceRulePlaceholder,
+} from './rule-link.js';
 import {
   toSentenceCase,
   removeTrailingPeriod,
@@ -76,6 +80,59 @@ function configsToNoticeSentence(
   return sentence;
 }
 
+/**
+ * Build the "It was replaced by ..." sentence from DeprecatedInfo.replacedBy entries.
+ * Entries without a rule name are silently skipped.
+ */
+function replacedByToNoticeSentence(
+  context: Context,
+  deprecated: DeprecatedInfo,
+  pathCurrentPage: string,
+): string | undefined {
+  if (!deprecated.replacedBy || deprecated.replacedBy.length === 0) {
+    return undefined;
+  }
+
+  function formatReplacedByEntry(info: ReplacedByInfo): string | undefined {
+    if (!info.rule?.name) {
+      return undefined;
+    }
+
+    // Prefer an explicit URL from the plugin maintainer; fall back to auto-generated link.
+    const replacementRule = info.rule.url
+      ? getMarkdownLink(info.rule.name, true, info.rule.url)
+      : getLinkToRule(context, info.rule.name, pathCurrentPage, true, true);
+
+    // Only show "from <plugin>" for external plugins (not ESLint core).
+    const externalPlugin =
+      info.plugin?.name && info.plugin.name !== 'eslint'
+        ? ` from ${getMarkdownLink(info.plugin.name, false, info.plugin.url)}`
+        : '';
+
+    return `${replacementRule}${externalPlugin}${
+      info.message ? ` (${info.message})` : ''
+    }${info.url ? ` (${getMarkdownLink('read more', false, info.url)})` : ''}`;
+  }
+
+  // Filter first, then apply conjunction, so "and" targets the correct item.
+  const parts = deprecated.replacedBy
+    .map((item) => formatReplacedByEntry(item))
+    .filter((part): part is string => part !== undefined);
+
+  if (parts.length === 0) {
+    return undefined;
+  }
+
+  if (parts.length > 1) {
+    const lastIndex = parts.length - 1;
+    // Safe: lastIndex is guaranteed valid since parts.length > 1.
+    // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
+    parts[lastIndex] = `and ${parts[lastIndex]}`;
+  }
+
+  return `It was replaced by ${parts.join(', ')}.`;
+}
+
 // A few individual notices declared here just so they can be reused in multiple notices.
 const NOTICE_FIXABLE = `${EMOJI_FIXABLE} This rule is automatically fixable by the [\`--fix\` CLI option](https://eslint.org/docs/latest/user-guide/command-line-interface#--fix).`;
 const NOTICE_HAS_SUGGESTIONS = `${EMOJI_HAS_SUGGESTIONS} This rule is manually fixable by [editor suggestions](https://eslint.org/docs/latest/use/core-concepts#rule-suggestions).`;
@@ -97,6 +154,7 @@ const RULE_NOTICES: {
         description?: string;
         fixable: boolean;
         hasSuggestions: boolean;
+        deprecated: boolean | DeprecatedInfo | undefined;
         replacedBy: readonly string[] | undefined;
         path: string;
         type?: RULE_TYPE;
@@ -170,15 +228,48 @@ const RULE_NOTICES: {
     return `${emojis.join('')} ${sentences}`;
   },
 
-  // Deprecated notice has optional "replaced by" rules list.
-  [NOTICE_TYPE.DEPRECATED]: ({ context, replacedBy, ruleName }) => {
+  [NOTICE_TYPE.DEPRECATED]: ({ context, deprecated, replacedBy, ruleName }) => {
     const { options, path } = context;
     const { pathRuleDoc } = options;
-    // pathCurrentPage must be an absolute path for relative() to work correctly in getLinkToRule.
+    // Derive the path of the *deprecated* rule's doc page (not the replacement's) so that
+    // relative() in getLinkToRule produces correct links from this page to replacements.
     const pathCurrentPage = join(
       getPluginRoot(path),
       replaceRulePlaceholder(pathRuleDoc, ruleName),
     );
+
+    // New DeprecatedInfo object format (ESLint >=9.21.0) vs legacy boolean format.
+    if (typeof deprecated === 'object') {
+      function formatVersion(version: string) {
+        return version.startsWith('v') ? version : `v${version}`;
+      }
+
+      const sentenceDeprecated = `${EMOJI_DEPRECATED} This rule ${
+        deprecated.deprecatedSince ? 'has been' : 'is'
+      } ${deprecated.url ? `[deprecated](${deprecated.url})` : 'deprecated'}${
+        deprecated.deprecatedSince
+          ? ` since ${formatVersion(deprecated.deprecatedSince)}`
+          : ''
+      }${
+        deprecated.availableUntil
+          ? ` and will be available until ${formatVersion(deprecated.availableUntil)}`
+          : ''
+      }.`;
+
+      const sentenceReplacedBy = replacedByToNoticeSentence(
+        context,
+        deprecated,
+        pathCurrentPage,
+      );
+
+      const deprecatedMessage = deprecated.message
+        ? addTrailingPeriod(deprecated.message)
+        : undefined;
+
+      return [sentenceDeprecated, sentenceReplacedBy, deprecatedMessage]
+        .filter(Boolean)
+        .join(' ');
+    }
 
     const replacementRuleList = (replacedBy ?? []).map(
       (replacementRuleName) => {
@@ -337,6 +428,7 @@ function getRuleNoticeLines(context: Context, ruleName: string) {
     configsWarn,
     configsOff,
   );
+
   let noticeType: keyof typeof notices;
 
   for (noticeType in notices) {
@@ -369,6 +461,7 @@ function getRuleNoticeLines(context: Context, ruleName: string) {
             ...(description !== undefined && { description }),
             fixable: Boolean(rule.meta?.fixable),
             hasSuggestions: Boolean(rule.meta?.hasSuggestions),
+            deprecated: rule.meta?.deprecated,
             // eslint-disable-next-line @typescript-eslint/no-deprecated
             replacedBy: rule.meta?.replacedBy,
             path,
