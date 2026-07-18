@@ -1,191 +1,133 @@
 import { generate } from '../../../lib/generator.js';
-import { getEndOfLine } from '../../../lib/eol.js';
+import {
+  createEndOfLineResolver,
+  detectEndOfLine,
+  getFallbackEndOfLine,
+  normalizeEndOfLine,
+} from '../../../lib/eol.js';
 import { EOL } from 'node:os';
+import { join } from 'node:path';
 import { setupFixture, type FixtureContext } from '../../helpers/fixture.js';
 
-describe('getEndOfLine', function () {
+function assertUniformEndOfLine(contents: string, endOfLine: '\n' | '\r\n') {
+  if (endOfLine === '\r\n') {
+    expect(contents.includes('\r\n')).toBe(true);
+    expect(contents.replaceAll('\r\n', '').includes('\n')).toBe(false);
+    expect(contents.replaceAll('\r\n', '').includes('\r')).toBe(false);
+  } else {
+    expect(contents.includes('\r')).toBe(false);
+  }
+}
+
+describe('detectEndOfLine', function () {
+  it('returns undefined for contents without line breaks', function () {
+    expect(detectEndOfLine('')).toBeUndefined();
+    expect(detectEndOfLine('no line breaks')).toBeUndefined();
+  });
+
+  it('detects lf', function () {
+    expect(detectEndOfLine('a\nb\nc\n')).toStrictEqual('\n');
+  });
+
+  it('detects crlf', function () {
+    expect(detectEndOfLine('a\r\nb\r\nc\r\n')).toStrictEqual('\r\n');
+  });
+
+  it('detects the predominant end of line in contents with mixed line endings', function () {
+    expect(detectEndOfLine('a\r\nb\r\nc\n')).toStrictEqual('\r\n');
+    expect(detectEndOfLine('a\nb\nc\r\n')).toStrictEqual('\n');
+  });
+
+  it('prefers lf when CRLF and LF counts are equal', function () {
+    expect(detectEndOfLine('a\r\nb\n')).toStrictEqual('\n');
+  });
+});
+
+describe('normalizeEndOfLine', function () {
+  it('converts mixed line endings to the given end of line', function () {
+    expect(normalizeEndOfLine('a\r\nb\nc\r\n', '\n')).toStrictEqual(
+      'a\nb\nc\n',
+    );
+    expect(normalizeEndOfLine('a\r\nb\nc\r\n', '\r\n')).toStrictEqual(
+      'a\r\nb\r\nc\r\n',
+    );
+  });
+
+  it('converts lone CR to the given end of line', function () {
+    expect(normalizeEndOfLine('a\rb\nc\r\n', '\n')).toStrictEqual('a\nb\nc\n');
+    expect(normalizeEndOfLine('a\rb\nc\r\n', '\r\n')).toStrictEqual(
+      'a\r\nb\r\nc\r\n',
+    );
+  });
+});
+
+describe('createEndOfLineResolver', function () {
   describe('with a ".editorconfig" file', function () {
-    describe('returns the correct end of line when ".editorconfig" exists', function () {
-      let fixture: FixtureContext;
-      let originalCwd: string;
+    let fixture: FixtureContext;
 
-      beforeEach(function () {
-        originalCwd = process.cwd();
-      });
+    afterEach(async function () {
+      await fixture.cleanup();
+    });
 
-      afterEach(async function () {
-        process.chdir(originalCwd);
-        await fixture.cleanup();
-      });
-
-      it('returns lf end of line when ".editorconfig" is configured with lf', async function () {
-        fixture = await setupFixture({
-          fixture: 'esm-base',
-          overrides: {
-            '.editorconfig': `
+    it('returns lf when ".editorconfig" is configured with lf', async function () {
+      fixture = await setupFixture({
+        fixture: 'esm-base',
+        overrides: {
+          '.editorconfig': `
                   root = true
 
                   [*]
                   end_of_line = lf`,
-          },
-        });
-        process.chdir(fixture.path);
-
-        expect(await getEndOfLine()).toStrictEqual('\n');
+        },
       });
 
-      it('returns crlf end of line when ".editorconfig" is configured with crlf', async function () {
-        fixture = await setupFixture({
-          fixture: 'esm-base',
-          overrides: {
-            '.editorconfig': `
+      const eol = createEndOfLineResolver();
+      expect(
+        await eol.getExplicitEndOfLine(join(fixture.path, 'README.md')),
+      ).toStrictEqual('\n');
+    });
+
+    it('returns crlf when ".editorconfig" is configured with crlf', async function () {
+      fixture = await setupFixture({
+        fixture: 'esm-base',
+        overrides: {
+          '.editorconfig': `
                 root = true
 
                 [*]
                 end_of_line = crlf`,
-          },
-        });
-        process.chdir(fixture.path);
-
-        expect(await getEndOfLine()).toStrictEqual('\r\n');
+        },
       });
 
-      it('respects the .md specific end of line settings when ".editorconfig" is configured', async function () {
-        fixture = await setupFixture({
-          fixture: 'esm-base',
-          overrides: {
-            '.editorconfig': `
-                  root = true
-
-                  [*]
-                  end_of_line = lf
-
-                  [*.md]
-                  end_of_line = crlf`,
-          },
-        });
-        process.chdir(fixture.path);
-
-        expect(await getEndOfLine()).toStrictEqual('\r\n');
-      });
+      const eol = createEndOfLineResolver();
+      expect(
+        await eol.getExplicitEndOfLine(join(fixture.path, 'README.md')),
+      ).toStrictEqual('\r\n');
     });
 
-    describe('generates using the correct end of line when ".editorconfig" exists', function () {
-      let fixture: FixtureContext;
+    it('treats unsupported values like "cr" as unset', async function () {
+      fixture = await setupFixture({
+        fixture: 'esm-base',
+        overrides: {
+          '.editorconfig': `
+                root = true
 
-      afterEach(async function () {
-        await fixture.cleanup();
+                [*]
+                end_of_line = cr`,
+        },
       });
 
-      it('generates using lf end of line from ".editorconfig"', async function () {
-        fixture = await setupFixture({
-          fixture: 'esm-base',
-          overrides: {
-            'index.js': `
-          export default {
-            rules: {
-              'c': { meta: { docs: {} }, create(context) {} },
-              'a': { meta: { docs: {} }, create(context) {} },
-              'B': { meta: { docs: {} }, create(context) {} },
-            },
-            configs: {
-              'c': { rules: { 'test/a': 'error', } },
-              'a': { rules: { 'test/a': 'error', } },
-              'B': { rules: { 'test/a': 'error', } },
-            }
-          };`,
-            'docs/rules/a.md': '',
-            'docs/rules/B.md': '',
-            'docs/rules/c.md': '',
-            'README.md':
-              '## Rules\n<!-- begin auto-generated rules list -->\n<!-- end auto-generated rules list -->',
-            '.editorconfig': `
-                  root = true
+      const eol = createEndOfLineResolver();
+      expect(
+        await eol.getExplicitEndOfLine(join(fixture.path, 'README.md')),
+      ).toBeUndefined();
+    });
 
-                  [*]
-                  end_of_line = lf`,
-          },
-        });
-
-        await generate(fixture.path, {
-          configEmoji: [
-            ['a', '🅰️'],
-            ['B', '🅱️'],
-            ['c', '🌊'],
-          ],
-        });
-        expect(await fixture.readFile('README.md')).toMatchSnapshot();
-        expect(await fixture.readFile('docs/rules/a.md')).toMatchSnapshot();
-        expect(await fixture.readFile('docs/rules/B.md')).toMatchSnapshot();
-        expect(await fixture.readFile('docs/rules/c.md')).toMatchSnapshot();
-      });
-
-      it('generates using crlf end of line from ".editorconfig"', async function () {
-        fixture = await setupFixture({
-          fixture: 'esm-base',
-          overrides: {
-            'index.js': `
-          export default {
-            rules: {
-              'c': { meta: { docs: {} }, create(context) {} },
-              'a': { meta: { docs: {} }, create(context) {} },
-              'B': { meta: { docs: {} }, create(context) {} },
-            },
-            configs: {
-              'c': { rules: { 'test/a': 'error', } },
-              'a': { rules: { 'test/a': 'error', } },
-              'B': { rules: { 'test/a': 'error', } },
-            }
-          };`,
-            'docs/rules/a.md': '',
-            'docs/rules/B.md': '',
-            'docs/rules/c.md': '',
-            'README.md':
-              '## Rules\r\n<!-- begin auto-generated rules list -->\r\n<!-- end auto-generated rules list -->',
-            '.editorconfig': `
-                  root = true
-
-                  [*]
-                  end_of_line = crlf`,
-          },
-        });
-
-        await generate(fixture.path, {
-          configEmoji: [
-            ['a', '🅰️'],
-            ['B', '🅱️'],
-            ['c', '🌊'],
-          ],
-        });
-        expect(await fixture.readFile('README.md')).toMatchSnapshot();
-        expect(await fixture.readFile('docs/rules/a.md')).toMatchSnapshot();
-        expect(await fixture.readFile('docs/rules/B.md')).toMatchSnapshot();
-        expect(await fixture.readFile('docs/rules/c.md')).toMatchSnapshot();
-      });
-
-      it('generates using the end of line from ".editorconfig" while respecting the .md specific end of line setting', async function () {
-        fixture = await setupFixture({
-          fixture: 'esm-base',
-          overrides: {
-            'index.js': `
-          export default {
-            rules: {
-              'c': { meta: { docs: {} }, create(context) {} },
-              'a': { meta: { docs: {} }, create(context) {} },
-              'B': { meta: { docs: {} }, create(context) {} },
-            },
-            configs: {
-              'c': { rules: { 'test/a': 'error', } },
-              'a': { rules: { 'test/a': 'error', } },
-              'B': { rules: { 'test/a': 'error', } },
-            }
-          };`,
-            'docs/rules/a.md': '',
-            'docs/rules/B.md': '',
-            'docs/rules/c.md': '',
-            'README.md':
-              '## Rules\r\n<!-- begin auto-generated rules list -->\r\n<!-- end auto-generated rules list -->',
-            '.editorconfig': `
+    it('respects the .md specific end of line settings when ".editorconfig" is configured', async function () {
+      fixture = await setupFixture({
+        fixture: 'esm-base',
+        overrides: {
+          '.editorconfig': `
                   root = true
 
                   [*]
@@ -193,54 +135,96 @@ describe('getEndOfLine', function () {
 
                   [*.md]
                   end_of_line = crlf`,
-          },
-        });
-
-        await generate(fixture.path, {
-          configEmoji: [
-            ['a', '🅰️'],
-            ['B', '🅱️'],
-            ['c', '🌊'],
-          ],
-        });
-        expect(await fixture.readFile('README.md')).toMatchSnapshot();
-        expect(await fixture.readFile('docs/rules/a.md')).toMatchSnapshot();
-        expect(await fixture.readFile('docs/rules/B.md')).toMatchSnapshot();
-        expect(await fixture.readFile('docs/rules/c.md')).toMatchSnapshot();
+        },
       });
+
+      const eol = createEndOfLineResolver();
+      expect(
+        await eol.getExplicitEndOfLine(join(fixture.path, 'README.md')),
+      ).toStrictEqual('\r\n');
+    });
+
+    it('resolves per-file globs so README and rule docs can differ', async function () {
+      fixture = await setupFixture({
+        fixture: 'esm-base',
+        overrides: {
+          '.editorconfig': `
+                  root = true
+
+                  [*]
+                  end_of_line = lf
+
+                  [docs/rules/*.md]
+                  end_of_line = crlf`,
+        },
+      });
+
+      const eol = createEndOfLineResolver();
+      expect(
+        await eol.getExplicitEndOfLine(join(fixture.path, 'README.md')),
+      ).toStrictEqual('\n');
+      expect(
+        await eol.getExplicitEndOfLine(
+          join(fixture.path, 'docs/rules/no-foo.md'),
+        ),
+      ).toStrictEqual('\r\n');
+    });
+
+    it('resolves sibling .md and .mdx files independently (cache keyed by path)', async function () {
+      fixture = await setupFixture({
+        fixture: 'esm-base',
+        overrides: {
+          '.editorconfig': `
+                  root = true
+
+                  [*.md]
+                  end_of_line = lf
+
+                  [*.mdx]
+                  end_of_line = crlf`,
+        },
+      });
+
+      const eol = createEndOfLineResolver();
+      expect(
+        await eol.getExplicitEndOfLine(
+          join(fixture.path, 'docs/rules/no-foo.md'),
+        ),
+      ).toStrictEqual('\n');
+      expect(
+        await eol.getExplicitEndOfLine(
+          join(fixture.path, 'docs/rules/no-bar.mdx'),
+        ),
+      ).toStrictEqual('\r\n');
+    });
+
+    it('treats EditorConfig end_of_line = cr as unset', async function () {
+      fixture = await setupFixture({
+        fixture: 'esm-base',
+        overrides: {
+          '.editorconfig': `
+                  root = true
+
+                  [*]
+                  end_of_line = cr`,
+        },
+      });
+
+      const eol = createEndOfLineResolver();
+      expect(
+        await eol.getExplicitEndOfLine(join(fixture.path, 'README.md')),
+      ).toBeUndefined();
     });
   });
 
   describe('with a Prettier config', function () {
     let fixture: FixtureContext;
-    let originalCwd: string;
-
-    beforeEach(function () {
-      originalCwd = process.cwd();
-    });
 
     afterEach(async function () {
-      process.chdir(originalCwd);
       await fixture.cleanup();
     });
 
-    it('returns lf end of line when ".prettierrc.json" is configured with lf', async function () {
-      fixture = await setupFixture({
-        fixture: 'esm-base',
-        overrides: {
-          '.prettierrc.json': `
-                  {
-                    "$schema": "https://json.schemastore.org/prettierrc",
-                    "endOfLine": "lf"
-                  }`,
-        },
-      });
-      process.chdir(fixture.path);
-
-      expect(await getEndOfLine()).toStrictEqual('\n');
-    });
-
-    it('returns crlf end of line when ".prettierrc.json" is configured with crlf', async function () {
+    it('does not consult Prettier config for end of line', async function () {
       fixture = await setupFixture({
         fixture: 'esm-base',
         overrides: {
@@ -251,49 +235,554 @@ describe('getEndOfLine', function () {
                   }`,
         },
       });
-      process.chdir(fixture.path);
 
-      expect(await getEndOfLine()).toStrictEqual('\r\n');
+      const eol = createEndOfLineResolver();
+      expect(
+        await eol.getExplicitEndOfLine(join(fixture.path, 'README.md')),
+      ).toBeUndefined();
+    });
+  });
+
+  describe('fallback', function () {
+    let fixture: FixtureContext;
+
+    afterEach(async function () {
+      await fixture.cleanup();
     });
 
-    it('returns lf when ".prettierrc.json" is not configured with the "endOfLine" option', async function () {
+    it('returns undefined when config files do not exist', async function () {
+      fixture = await setupFixture({
+        fixture: 'esm-base',
+      });
+
+      const eol = createEndOfLineResolver();
+      expect(
+        await eol.getExplicitEndOfLine(join(fixture.path, 'README.md')),
+      ).toBeUndefined();
+      expect(getFallbackEndOfLine()).toStrictEqual(EOL);
+    });
+  });
+});
+
+describe('generate with end of line', function () {
+  describe('with a ".editorconfig" file', function () {
+    let fixture: FixtureContext;
+
+    afterEach(async function () {
+      await fixture.cleanup();
+    });
+
+    it('generates using lf end of line from ".editorconfig"', async function () {
       fixture = await setupFixture({
         fixture: 'esm-base',
         overrides: {
+          'index.js': `
+          export default {
+            rules: {
+              'c': { meta: { docs: {} }, create(context) {} },
+              'a': { meta: { docs: {} }, create(context) {} },
+              'B': { meta: { docs: {} }, create(context) {} },
+            },
+            configs: {
+              'c': { rules: { 'test/a': 'error', } },
+              'a': { rules: { 'test/a': 'error', } },
+              'B': { rules: { 'test/a': 'error', } },
+            }
+          };`,
+          'docs/rules/a.md': '',
+          'docs/rules/B.md': '',
+          'docs/rules/c.md': '',
+          'README.md':
+            '## Rules\n<!-- begin auto-generated rules list -->\n<!-- end auto-generated rules list -->',
+          '.editorconfig': `
+                  root = true
+
+                  [*]
+                  end_of_line = lf`,
+        },
+      });
+
+      await generate(fixture.path, {
+        configEmoji: [
+          ['a', '🅰️'],
+          ['B', '🅱️'],
+          ['c', '🌊'],
+        ],
+      });
+      assertUniformEndOfLine(await fixture.readFile('README.md'), '\n');
+      assertUniformEndOfLine(await fixture.readFile('docs/rules/a.md'), '\n');
+
+      expect(await fixture.readFile('README.md')).toMatchSnapshot();
+      expect(await fixture.readFile('docs/rules/a.md')).toMatchSnapshot();
+      expect(await fixture.readFile('docs/rules/B.md')).toMatchSnapshot();
+      expect(await fixture.readFile('docs/rules/c.md')).toMatchSnapshot();
+    });
+
+    it('generates using crlf end of line from ".editorconfig"', async function () {
+      fixture = await setupFixture({
+        fixture: 'esm-base',
+        overrides: {
+          'index.js': `
+          export default {
+            rules: {
+              'c': { meta: { docs: {} }, create(context) {} },
+              'a': { meta: { docs: {} }, create(context) {} },
+              'B': { meta: { docs: {} }, create(context) {} },
+            },
+            configs: {
+              'c': { rules: { 'test/a': 'error', } },
+              'a': { rules: { 'test/a': 'error', } },
+              'B': { rules: { 'test/a': 'error', } },
+            }
+          };`,
+          'docs/rules/a.md': '',
+          'docs/rules/B.md': '',
+          'docs/rules/c.md': '',
+          'README.md':
+            '## Rules\r\n<!-- begin auto-generated rules list -->\r\n<!-- end auto-generated rules list -->',
+          '.editorconfig': `
+                  root = true
+
+                  [*]
+                  end_of_line = crlf`,
+        },
+      });
+
+      await generate(fixture.path, {
+        configEmoji: [
+          ['a', '🅰️'],
+          ['B', '🅱️'],
+          ['c', '🌊'],
+        ],
+      });
+      assertUniformEndOfLine(await fixture.readFile('README.md'), '\r\n');
+      assertUniformEndOfLine(await fixture.readFile('docs/rules/a.md'), '\r\n');
+
+      expect(await fixture.readFile('README.md')).toMatchSnapshot();
+      expect(await fixture.readFile('docs/rules/a.md')).toMatchSnapshot();
+      expect(await fixture.readFile('docs/rules/B.md')).toMatchSnapshot();
+      expect(await fixture.readFile('docs/rules/c.md')).toMatchSnapshot();
+    });
+
+    it('generates using the end of line from ".editorconfig" while respecting the .md specific end of line setting', async function () {
+      fixture = await setupFixture({
+        fixture: 'esm-base',
+        overrides: {
+          'index.js': `
+          export default {
+            rules: {
+              'c': { meta: { docs: {} }, create(context) {} },
+              'a': { meta: { docs: {} }, create(context) {} },
+              'B': { meta: { docs: {} }, create(context) {} },
+            },
+            configs: {
+              'c': { rules: { 'test/a': 'error', } },
+              'a': { rules: { 'test/a': 'error', } },
+              'B': { rules: { 'test/a': 'error', } },
+            }
+          };`,
+          'docs/rules/a.md': '',
+          'docs/rules/B.md': '',
+          'docs/rules/c.md': '',
+          'README.md':
+            '## Rules\r\n<!-- begin auto-generated rules list -->\r\n<!-- end auto-generated rules list -->',
+          '.editorconfig': `
+                  root = true
+
+                  [*]
+                  end_of_line = lf
+
+                  [*.md]
+                  end_of_line = crlf`,
+        },
+      });
+
+      await generate(fixture.path, {
+        configEmoji: [
+          ['a', '🅰️'],
+          ['B', '🅱️'],
+          ['c', '🌊'],
+        ],
+      });
+      assertUniformEndOfLine(await fixture.readFile('README.md'), '\r\n');
+      assertUniformEndOfLine(await fixture.readFile('docs/rules/a.md'), '\r\n');
+
+      expect(await fixture.readFile('README.md')).toMatchSnapshot();
+      expect(await fixture.readFile('docs/rules/a.md')).toMatchSnapshot();
+      expect(await fixture.readFile('docs/rules/B.md')).toMatchSnapshot();
+      expect(await fixture.readFile('docs/rules/c.md')).toMatchSnapshot();
+    });
+
+    // eslint-disable-next-line vitest/expect-expect -- assertions via assertUniformEndOfLine
+    it('applies per-glob editorconfig end_of_line to README vs rule docs', async function () {
+      fixture = await setupFixture({
+        fixture: 'esm-base',
+        overrides: {
+          'docs/rules/no-foo.md': '',
+          'README.md':
+            '## Rules\r\n\r\n<!-- begin auto-generated rules list -->\r\n<!-- end auto-generated rules list -->\r\n',
+          '.editorconfig': `
+                  root = true
+
+                  [*]
+                  end_of_line = lf
+
+                  [docs/rules/*.md]
+                  end_of_line = crlf`,
+        },
+      });
+
+      await generate(fixture.path);
+
+      assertUniformEndOfLine(await fixture.readFile('README.md'), '\n');
+      assertUniformEndOfLine(
+        await fixture.readFile('docs/rules/no-foo.md'),
+        '\r\n',
+      );
+    });
+
+    // eslint-disable-next-line vitest/expect-expect -- assertions via assertUniformEndOfLine
+    it('writes sibling .md and .mdx docs with their own editorconfig end_of_line', async function () {
+      fixture = await setupFixture({
+        fixture: 'esm-base',
+        overrides: {
+          'index.js': `
+          export default {
+            rules: {
+              'no-foo': { meta: { docs: { description: 'Description of no-foo.' } }, create(context) {} },
+              'no-bar': { meta: { docs: { description: 'Description of no-bar.' } }, create(context) {} },
+            },
+          };`,
+          'docs/rules/no-foo.md': '',
+          // Only the .mdx file exists; resolveDocPath falls back from .md → .mdx.
+          'docs/rules/no-bar.mdx': '',
+          'README.md':
+            '## Rules\n\n<!-- begin auto-generated rules list -->\n<!-- end auto-generated rules list -->\n',
+          '.editorconfig': `
+                  root = true
+
+                  [*.md]
+                  end_of_line = lf
+
+                  [*.mdx]
+                  end_of_line = crlf`,
+        },
+      });
+
+      await generate(fixture.path);
+
+      assertUniformEndOfLine(
+        await fixture.readFile('docs/rules/no-foo.md'),
+        '\n',
+      );
+      assertUniformEndOfLine(
+        await fixture.readFile('docs/rules/no-bar.mdx'),
+        '\r\n',
+      );
+    });
+  });
+
+  describe('explicit config precedence', function () {
+    let fixture: FixtureContext;
+
+    afterEach(async function () {
+      await fixture.cleanup();
+    });
+
+    it('converts an LF rule doc to CRLF when editorconfig sets end_of_line = crlf, preserving content (#725)', async function () {
+      fixture = await setupFixture({
+        fixture: 'esm-base',
+        overrides: {
+          'docs/rules/no-foo.md':
+            '# Description of no-foo (`test/no-foo`)\n\n<!-- end auto-generated rule header -->\n\nSome description.\n\n## Further Reading\n\n- [link](https://example.com/)\n',
+          'README.md':
+            '## Rules\n\n<!-- begin auto-generated rules list -->\n<!-- end auto-generated rules list -->\n',
+          '.editorconfig': `
+                root = true
+
+                [*]
+                end_of_line = crlf`,
+        },
+      });
+
+      await generate(fixture.path);
+
+      const ruleDoc = await fixture.readFile('docs/rules/no-foo.md');
+      expect(ruleDoc).toContain('## Further Reading');
+      expect(ruleDoc).toContain('Some description.');
+      assertUniformEndOfLine(ruleDoc, '\r\n');
+    });
+
+    it('converts a CRLF rule doc to LF when editorconfig sets end_of_line = lf, preserving content', async function () {
+      fixture = await setupFixture({
+        fixture: 'esm-base',
+        overrides: {
+          'docs/rules/no-foo.md':
+            '# Description of no-foo (`test/no-foo`)\r\n\r\n<!-- end auto-generated rule header -->\r\n\r\nSome description.\r\n\r\n## Further Reading\r\n\r\n- [link](https://example.com/)\r\n',
+          'README.md':
+            '## Rules\r\n\r\n<!-- begin auto-generated rules list -->\r\n<!-- end auto-generated rules list -->\r\n',
+          '.editorconfig': `
+                root = true
+
+                [*]
+                end_of_line = lf`,
+        },
+      });
+
+      await generate(fixture.path);
+
+      const ruleDoc = await fixture.readFile('docs/rules/no-foo.md');
+      expect(ruleDoc).toContain('## Further Reading');
+      expect(ruleDoc).toContain('Some description.');
+      assertUniformEndOfLine(ruleDoc, '\n');
+    });
+
+    // eslint-disable-next-line vitest/expect-expect -- assertions via assertUniformEndOfLine
+    it('preserves LF when prettier sets endOfLine: crlf (Prettier is not consulted)', async function () {
+      fixture = await setupFixture({
+        fixture: 'esm-base',
+        overrides: {
+          'docs/rules/no-foo.md': '',
+          'README.md':
+            '## Rules\n\n<!-- begin auto-generated rules list -->\n<!-- end auto-generated rules list -->\n',
+          '.prettierrc.json': `
+                  {
+                    "$schema": "https://json.schemastore.org/prettierrc",
+                    "endOfLine": "crlf"
+                  }`,
+        },
+      });
+
+      await generate(fixture.path);
+
+      assertUniformEndOfLine(await fixture.readFile('README.md'), '\n');
+    });
+
+    // eslint-disable-next-line vitest/expect-expect -- assertions via assertUniformEndOfLine
+    it('preserves CRLF when prettier config exists but does not set endOfLine (eslint-plugin-cypress / #726)', async function () {
+      fixture = await setupFixture({
+        fixture: 'esm-base',
+        overrides: {
+          'docs/rules/no-foo.md': '',
+          'README.md':
+            '## Rules\r\n\r\n<!-- begin auto-generated rules list -->\r\n<!-- end auto-generated rules list -->\r\n',
           '.prettierrc.json': `
                   {
                     "$schema": "https://json.schemastore.org/prettierrc"
                   }`,
         },
       });
-      process.chdir(fixture.path);
 
-      expect(await getEndOfLine()).toStrictEqual('\n');
+      await generate(fixture.path);
+
+      assertUniformEndOfLine(await fixture.readFile('README.md'), '\r\n');
+    });
+
+    // eslint-disable-next-line vitest/expect-expect -- assertions via assertUniformEndOfLine
+    it('uses os.EOL for new/empty docs even when prettier sets endOfLine: crlf', async function () {
+      fixture = await setupFixture({
+        fixture: 'esm-base',
+        overrides: {
+          'docs/rules/no-foo.md': '',
+          'README.md':
+            '## Rules\n\n<!-- begin auto-generated rules list -->\n<!-- end auto-generated rules list -->\n',
+          '.prettierrc.json': `
+                  {
+                    "$schema": "https://json.schemastore.org/prettierrc",
+                    "endOfLine": "crlf"
+                  }`,
+        },
+      });
+
+      await generate(fixture.path);
+
+      assertUniformEndOfLine(
+        await fixture.readFile('docs/rules/no-foo.md'),
+        getFallbackEndOfLine(),
+      );
+    });
+
+    it('fails --check when an existing file violates an explicit end_of_line config', async function () {
+      const ruleDocCrlf =
+        '# Description of no-foo (`test/no-foo`)\r\n\r\n<!-- end auto-generated rule header -->\r\n\r\nSome description.\r\n';
+      const readmeCrlf =
+        '## Rules\r\n\r\n<!-- begin auto-generated rules list -->\r\n<!-- end auto-generated rules list -->\r\n';
+      fixture = await setupFixture({
+        fixture: 'esm-base',
+        overrides: {
+          'docs/rules/no-foo.md': ruleDocCrlf,
+          'README.md': readmeCrlf,
+          '.editorconfig': `
+                root = true
+
+                [*]
+                end_of_line = lf`,
+        },
+      });
+
+      // Bring content up-to-date while converting to LF from the config.
+      await generate(fixture.path);
+      assertUniformEndOfLine(await fixture.readFile('README.md'), '\n');
+
+      // Rewrite the README with CRLF so it again violates the explicit config.
+      const { writeFile } = await import('node:fs/promises');
+      await writeFile(
+        join(fixture.path, 'README.md'),
+        normalizeEndOfLine(await fixture.readFile('README.md'), '\r\n'),
+      );
+
+      process.exitCode = undefined;
+      await generate(fixture.path, { check: true });
+      expect(process.exitCode).toBe(1);
+      process.exitCode = undefined;
     });
   });
 
-  describe('fallback', function () {
+  describe('end-of-line detection from existing files', function () {
     let fixture: FixtureContext;
-    let originalCwd: string;
-
-    beforeEach(function () {
-      originalCwd = process.cwd();
-    });
 
     afterEach(async function () {
-      process.chdir(originalCwd);
       await fixture.cleanup();
     });
 
-    it('handles fallback to to `EOL` from `node:os` when config files do not exist', async function () {
-      // Run from a fixture directory that has no editorconfig or prettier config
+    // eslint-disable-next-line vitest/expect-expect -- assertions via assertUniformEndOfLine
+    it('inserts the rules list using the line endings of the existing file when there is no explicit config (#726)', async function () {
       fixture = await setupFixture({
         fixture: 'esm-base',
-        // No config files - just the base fixture
+        overrides: {
+          'docs/rules/no-foo.md': '',
+          'README.md':
+            '## Rules\r\n\r\n<!-- begin auto-generated rules list -->\r\n<!-- end auto-generated rules list -->\r\n',
+        },
       });
-      process.chdir(fixture.path);
 
-      expect(await getEndOfLine()).toStrictEqual(EOL);
+      await generate(fixture.path);
+
+      assertUniformEndOfLine(await fixture.readFile('README.md'), '\r\n');
+    });
+
+    // eslint-disable-next-line vitest/expect-expect -- assertions via assertUniformEndOfLine
+    it('unifies mixed line endings to the predominant one when there is no explicit config', async function () {
+      fixture = await setupFixture({
+        fixture: 'esm-base',
+        overrides: {
+          'docs/rules/no-foo.md': '',
+          // README has mostly-CRLF but mixed line endings (as could be produced by older versions of this tool).
+          'README.md':
+            '# eslint-plugin-test\n\r\n## Rules\r\n\r\n<!-- begin auto-generated rules list -->\r\n<!-- end auto-generated rules list -->\r\n',
+        },
+      });
+
+      await generate(fixture.path);
+
+      assertUniformEndOfLine(await fixture.readFile('README.md'), '\r\n');
+    });
+
+    it('passes in --check mode when up-to-date files match detected endings and there is no explicit config', async function () {
+      const ruleDocCrlf =
+        '# Description of no-foo (`test/no-foo`)\r\n\r\n<!-- end auto-generated rule header -->\r\n\r\nSome description.\r\n';
+      const readmeCrlf =
+        '## Rules\r\n\r\n<!-- begin auto-generated rules list -->\r\n<!-- end auto-generated rules list -->\r\n';
+      fixture = await setupFixture({
+        fixture: 'esm-base',
+        overrides: {
+          'docs/rules/no-foo.md': ruleDocCrlf,
+          'README.md': readmeCrlf,
+        },
+      });
+
+      await generate(fixture.path);
+
+      process.exitCode = undefined;
+      await generate(fixture.path, { check: true });
+      expect(process.exitCode).toBeUndefined();
+    });
+
+    // eslint-disable-next-line vitest/expect-expect -- assertions via assertUniformEndOfLine
+    it('unifies stray lone CR when updating an existing file', async function () {
+      fixture = await setupFixture({
+        fixture: 'esm-base',
+        overrides: {
+          'docs/rules/no-foo.md': '',
+          // Mostly LF with a stray classic Mac CR so normalization must clear it.
+          'README.md':
+            '## Rules\n\n<!-- begin auto-generated rules list -->\r<!-- end auto-generated rules list -->\n',
+        },
+      });
+
+      await generate(fixture.path);
+
+      assertUniformEndOfLine(await fixture.readFile('README.md'), '\n');
+    });
+  });
+
+  describe('--init-rule-docs', function () {
+    let fixture: FixtureContext;
+
+    afterEach(async function () {
+      await fixture.cleanup();
+    });
+
+    // eslint-disable-next-line vitest/expect-expect -- assertions via assertUniformEndOfLine
+    it('creates new rule docs using editorconfig end_of_line', async function () {
+      fixture = await setupFixture({
+        fixture: 'esm-base',
+        overrides: {
+          'index.js': `
+          export default {
+            rules: {
+              'no-new': {
+                meta: { docs: { description: 'Description of no-new.' } },
+                create(context) {}
+              },
+            },
+          };`,
+          'README.md':
+            '## Rules\n\n<!-- begin auto-generated rules list -->\n<!-- end auto-generated rules list -->\n',
+          '.editorconfig': `
+                root = true
+
+                [*]
+                end_of_line = crlf`,
+        },
+      });
+
+      await generate(fixture.path, { initRuleDocs: true });
+
+      assertUniformEndOfLine(
+        await fixture.readFile('docs/rules/no-new.md'),
+        '\r\n',
+      );
+    });
+  });
+
+  describe('postprocess', function () {
+    let fixture: FixtureContext;
+
+    afterEach(async function () {
+      await fixture.cleanup();
+    });
+
+    // eslint-disable-next-line vitest/expect-expect -- assertions via assertUniformEndOfLine
+    it('writes postprocess output endings verbatim', async function () {
+      fixture = await setupFixture({
+        fixture: 'esm-base',
+        overrides: {
+          'docs/rules/no-foo.md': '',
+          'README.md':
+            '## Rules\n\n<!-- begin auto-generated rules list -->\n<!-- end auto-generated rules list -->\n',
+        },
+      });
+
+      await generate(fixture.path, {
+        postprocess: (content) => content.replaceAll('\n', '\r\n'),
+      });
+
+      assertUniformEndOfLine(await fixture.readFile('README.md'), '\r\n');
+      assertUniformEndOfLine(
+        await fixture.readFile('docs/rules/no-foo.md'),
+        '\r\n',
+      );
     });
   });
 });

@@ -169,8 +169,6 @@ export function generateLegend(
   context: Context,
   columns: Record<COLUMN_TYPE, boolean>,
 ) {
-  const { endOfLine } = context;
-
   const legends = (
     Object.entries(columns) as readonly [COLUMN_TYPE, boolean][]
   ).flatMap(([columnType, enabled]) => {
@@ -208,5 +206,5 @@ export function generateLegend(
   }
 
   // The backslashes ensure that they end up displayed on separate lines.
-  return legends.join(`\\${endOfLine}`);
+  return legends.join('\\\n');
 }

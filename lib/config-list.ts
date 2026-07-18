@@ -60,7 +60,7 @@ function generateConfigListMarkdown(context: Context): string {
   ];
 
   return markdownTable(
-    sanitizeMarkdownTable(context, rows),
+    sanitizeMarkdownTable(rows),
     { align: 'l' }, // Left-align headers.
   );
 }
@@ -70,7 +70,7 @@ export function updateConfigsList(
   markdown: string,
   isMdx: boolean,
 ): string {
-  const { configsToRules, endOfLine, options } = context;
+  const { configsToRules, options } = context;
   const { ignoreConfig } = options;
 
   const formattedConfigListMarkerBegin = formatComment(
@@ -108,5 +108,5 @@ export function updateConfigsList(
   // New config list.
   const list = generateConfigListMarkdown(context);
 
-  return `${preList}${formattedConfigListMarkerBegin}${endOfLine}${endOfLine}${list}${endOfLine}${endOfLine}${formattedConfigListMarkerEnd}${postList}`;
+  return `${preList}${formattedConfigListMarkerBegin}\n\n${list}\n\n${formattedConfigListMarkerEnd}${postList}`;
 }

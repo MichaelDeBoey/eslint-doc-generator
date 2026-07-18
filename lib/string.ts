@@ -1,5 +1,3 @@
-import type { Context } from './context.js';
-
 /** Uppercase the first character of a string, leaving the rest unchanged. */
 function upperFirst(str: string): string {
   return str.charAt(0).toUpperCase() + str.slice(1);
@@ -25,17 +23,13 @@ export function capitalizeOnlyFirstLetter(str: string) {
   return upperFirst(str.toLowerCase());
 }
 
-function sanitizeMarkdownTableCell(context: Context, text: string): string {
-  const { endOfLine } = context;
-
-  return text.replaceAll('|', String.raw`\|`).replaceAll(endOfLine, '<br/>');
+function sanitizeMarkdownTableCell(text: string): string {
+  // Handle CRLF line endings too since cell text can come from rule metadata.
+  return text.replaceAll('|', String.raw`\|`).replaceAll(/\r?\n/gu, '<br/>');
 }
 
 export function sanitizeMarkdownTable(
-  context: Context,
   text: readonly (readonly string[])[],
 ): readonly (readonly string[])[] {
-  return text.map((row) =>
-    row.map((col) => sanitizeMarkdownTableCell(context, col)),
-  );
+  return text.map((row) => row.map((col) => sanitizeMarkdownTableCell(col)));
 }

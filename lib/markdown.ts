@@ -1,11 +1,12 @@
 // General helpers for dealing with markdown files / content.
+// All markdown content is processed using LF (`\n`) line endings. The desired
+// end of line for each file is only applied when writing the file.
 
 import { END_RULE_HEADER_MARKER, formatComment } from './comment-markers.js';
 import type { Context } from './context.js';
 
-export function extractFrontmatter(context: Context, markdown: string) {
-  const { endOfLine } = context;
-  const lines = markdown.split(endOfLine);
+export function extractFrontmatter(markdown: string) {
+  const lines = markdown.split('\n');
   const frontMatterStart = lines.indexOf('---');
 
   // Frontmatter must start at the beginning of the file to be considered valid, so if we don't find '---' at the beginning, we want to ignore it.
@@ -14,19 +15,17 @@ export function extractFrontmatter(context: Context, markdown: string) {
   }
   const frontMatterEnd = lines.indexOf('---', frontMatterStart + 1);
   if (frontMatterEnd !== -1) {
-    return lines.slice(frontMatterStart, frontMatterEnd + 1).join(endOfLine);
+    return lines.slice(frontMatterStart, frontMatterEnd + 1).join('\n');
   }
   return undefined;
 }
 
 /**
  * Replace the frontmatter, if present.  If not and we have newFrontmatter to add, then add it at the beginning.
- * @param context - execution context
  * @param markdown - doc content
  * @param newFrontmatter - new frontmatter
  */
 export function replaceOrCreateFrontmatter(
-  context: Context,
   markdown: string,
   newFrontmatter: string | undefined,
 ): string {
@@ -35,39 +34,33 @@ export function replaceOrCreateFrontmatter(
     return markdown;
   }
 
-  const { endOfLine } = context;
-
-  const lines = markdown.split(endOfLine);
+  const lines = markdown.split('\n');
 
   const frontmatterStartIndex = lines.indexOf('---');
 
   // If there's no existing frontmatter, just add it to the top.
   if (frontmatterStartIndex !== 0) {
-    return [newFrontmatter, markdown].join(endOfLine);
+    return [newFrontmatter, markdown].join('\n');
   }
 
   const frontmatterEndIndex = lines.indexOf('---', frontmatterStartIndex + 1);
-  const postFrontmatter = lines.slice(frontmatterEndIndex + 1).join(endOfLine);
-  return [newFrontmatter, postFrontmatter].join(endOfLine);
+  const postFrontmatter = lines.slice(frontmatterEndIndex + 1).join('\n');
+  return [newFrontmatter, postFrontmatter].join('\n');
 }
 
 /**
  * Replace the header of a doc up to and including the specified marker.
  * Insert at beginning if header doesn't exist.
- * @param context - execution context
  * @param markdown - doc content
  * @param newHeader - new header including marker
  * @param isMdx - is the file we're working on mdx or just regular md
  */
 export function replaceOrCreateHeader(
-  context: Context,
   markdown: string,
   newHeader: string,
   isMdx: boolean,
 ) {
-  const { endOfLine } = context;
-
-  const lines = markdown.split(endOfLine);
+  const lines = markdown.split('\n');
 
   const titleLineIndex = lines.findIndex((line) => line.startsWith('# '));
   const markerLineIndex = lines.indexOf(
@@ -79,32 +72,27 @@ export function replaceOrCreateHeader(
   // Any YAML front matter or anything else above the title should be kept as-is ahead of the new header.
   const preHeader = lines
     .slice(0, Math.max(titleLineIndex, dashesLineIndex2 + 1))
-    .join(endOfLine);
+    .join('\n');
 
   // Anything after the marker comment, title, or YAML front matter should be kept as-is after the new header.
   const postHeader = lines
     .slice(
       Math.max(markerLineIndex + 1, titleLineIndex + 1, dashesLineIndex2 + 1),
     )
-    .join(endOfLine);
+    .join('\n');
 
-  return `${
-    preHeader ? `${preHeader}${endOfLine}` : ''
-  }${newHeader}${endOfLine}${postHeader}`;
+  return `${preHeader ? `${preHeader}\n` : ''}${newHeader}\n${postHeader}`;
 }
 
 /**
  * Find the section most likely to be the top-level section for a given string.
  */
 export function findSectionHeader(
-  context: Context,
   markdown: string,
   str: string,
 ): string | undefined {
-  const { endOfLine } = context;
-
   // Get all the matching strings.
-  const regexp = new RegExp(`## .*${str}.*${endOfLine}`, 'giu');
+  const regexp = new RegExp(`## .*${str}.*\n`, 'giu');
   const sectionPotentialMatches = [...markdown.matchAll(regexp)].map(
     (match) => match[0],
   );
@@ -130,11 +118,10 @@ export function findFinalHeaderLevel(
   str: string,
 ): number | undefined {
   const {
-    endOfLine,
     options: { framework },
   } = context;
 
-  const lines = str.split(endOfLine);
+  const lines = str.split('\n');
   const finalHeader = lines
     .toReversed()
     .find((line) => line.match('^(#+) .+$'));
@@ -143,7 +130,7 @@ export function findFinalHeaderLevel(
     return finalHeader.indexOf(' ');
   }
   // If the framework is `starlight` and there's frontmatter at the top, treat that as an H1
-  else if (framework === 'starlight' && extractFrontmatter(context, str)) {
+  else if (framework === 'starlight' && extractFrontmatter(str)) {
     return 1;
   }
 
@@ -184,14 +171,13 @@ export function expectContentOrFail(
 }
 
 export function expectSectionHeaderOrFail(
-  context: Context,
   contentName: string,
   contents: string,
   possibleHeaders: readonly string[],
   expected: boolean,
 ) {
   const found = possibleHeaders.some((header) =>
-    findSectionHeader(context, contents, header),
+    findSectionHeader(contents, header),
   );
   if (found !== expected) {
     if (possibleHeaders.length > 1) {

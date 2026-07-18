@@ -26,6 +26,7 @@ import { replaceRulePlaceholder } from './rule-link.js';
 import { updateRuleOptionsList } from './rule-options-list.js';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { getContext } from './context.js';
+import { createEndOfLineResolver, normalizeEndOfLine } from './eol.js';
 import { generateSuggestedEmojis } from './suggest-emojis.js';
 import { generateFrontmatterLines } from './frontmatter.js';
 
@@ -61,7 +62,11 @@ function resolveDocPath(configuredPath: string): string | undefined {
 // eslint-disable-next-line complexity
 export async function generate(path: string, userOptions?: GenerateOptions) {
   const context = await getContext(path, userOptions);
-  const { endOfLine, options, plugin } = context;
+  const { options, plugin } = context;
+  const endOfLineResolver = createEndOfLineResolver();
+
+  // Markdown is processed with LF internally; each file's write end of line
+  // comes from `endOfLineResolver` (see `lib/eol.ts`).
 
   // Destructure options that are only used in this function. Other options are passed around using
   // the "context" object.
@@ -142,31 +147,40 @@ export async function generate(path: string, userOptions?: GenerateOptions) {
       const isRuleDocMdx = isMdx(pathToDoc);
       let newRuleDocContents = [
         ruleDocSectionInclude.length > 0
-          ? ruleDocSectionInclude
-              .map((title) => `## ${title}`)
-              .join(`${endOfLine}${endOfLine}`)
+          ? ruleDocSectionInclude.map((title) => `## ${title}`).join('\n\n')
           : undefined,
         /* istanbul ignore next -- both branches tested but coverage has instrumentation issue with ternary in array */
         ruleHasOptions
-          ? `## Options${endOfLine}${endOfLine}${formatComment(BEGIN_RULE_OPTIONS_LIST_MARKER, isRuleDocMdx)}${endOfLine}${formatComment(END_RULE_OPTIONS_LIST_MARKER, isRuleDocMdx)}`
+          ? `## Options\n\n${formatComment(BEGIN_RULE_OPTIONS_LIST_MARKER, isRuleDocMdx)}\n${formatComment(END_RULE_OPTIONS_LIST_MARKER, isRuleDocMdx)}`
           : undefined,
       ]
         .filter((section) => section !== undefined)
-        .join(`${endOfLine}${endOfLine}`);
+        .join('\n\n');
       /* istanbul ignore next -- V8 branch coverage doesn't detect this branch is tested */
       if (newRuleDocContents !== '') {
-        newRuleDocContents = `${endOfLine}${newRuleDocContents}${endOfLine}`;
+        newRuleDocContents = `\n${newRuleDocContents}\n`;
       }
 
       await mkdir(dirname(pathToDoc), { recursive: true });
-      await writeFile(pathToDoc, newRuleDocContents);
+      const newDocEndOfLine = await endOfLineResolver.resolve(
+        pathToDoc,
+        undefined,
+      );
+      await writeFile(
+        pathToDoc,
+        normalizeEndOfLine(newRuleDocContents, newDocEndOfLine),
+      );
       initializedRuleDoc = true;
     }
 
     const isRuleDocMdx = isMdx(pathToDoc);
-    const contentsOldBuffer = await readFile(pathToDoc);
-    const contentsOld = contentsOldBuffer.toString();
-    const frontmatterOld = extractFrontmatter(context, contentsOld);
+    const contentsOld = await readFile(pathToDoc, 'utf8');
+
+    // Normalize to LF for processing; restore this file's end of line before write.
+    const endOfLine = await endOfLineResolver.resolve(pathToDoc, contentsOld);
+    const contentsOldNormalized = normalizeEndOfLine(contentsOld, '\n');
+
+    const frontmatterOld = extractFrontmatter(contentsOldNormalized);
 
     // Regenerate the header (title/notices) and frontmatter of each rule doc.
     const newHeaderLines = generateRuleHeaderLines(
@@ -184,23 +198,22 @@ export async function generate(path: string, userOptions?: GenerateOptions) {
 
     // Generate the new content for the rule doc by replacing the header and frontmatter, and updating the rule options list if necessary.
     let contentsNew = replaceOrCreateFrontmatter(
-      context,
-      contentsOld,
+      contentsOldNormalized,
       newFrontmatterLines,
     );
     contentsNew = replaceOrCreateHeader(
-      context,
       contentsNew,
       newHeaderLines,
       isRuleDocMdx,
     );
-    contentsNew = updateRuleOptionsList(
-      context,
-      contentsNew,
-      rule,
-      isRuleDocMdx,
-    );
+    contentsNew = updateRuleOptionsList(contentsNew, rule, isRuleDocMdx);
+
+    // Convert to the doc's end of line before postprocessing and writing.
+    contentsNew = normalizeEndOfLine(contentsNew, endOfLine);
     contentsNew = await postprocess(contentsNew, resolve(pathToDoc));
+
+    // LF-normalized copy of the final contents for the content checks below.
+    const contentsNewNormalized = normalizeEndOfLine(contentsNew, '\n');
 
     if (check) {
       /* istanbul ignore next -- V8 branch coverage doesn't detect this branch is tested */
@@ -223,9 +236,8 @@ export async function generate(path: string, userOptions?: GenerateOptions) {
     // Check for required sections.
     for (const section of ruleDocSectionInclude) {
       expectSectionHeaderOrFail(
-        context,
         `\`${name}\` rule doc`,
-        contentsNew,
+        contentsNewNormalized,
         [section],
         true,
       );
@@ -234,9 +246,8 @@ export async function generate(path: string, userOptions?: GenerateOptions) {
     // Check for disallowed sections.
     for (const section of ruleDocSectionExclude) {
       expectSectionHeaderOrFail(
-        context,
         `\`${name}\` rule doc`,
-        contentsNew,
+        contentsNewNormalized,
         [section],
         false,
       );
@@ -245,9 +256,8 @@ export async function generate(path: string, userOptions?: GenerateOptions) {
     if (ruleDocSectionOptions) {
       // Options section.
       expectSectionHeaderOrFail(
-        context,
         `\`${name}\` rule doc`,
-        contentsNew,
+        contentsNewNormalized,
         ['Options', 'Config'],
         ruleHasOptions,
       );
@@ -258,7 +268,7 @@ export async function generate(path: string, userOptions?: GenerateOptions) {
         expectContentOrFail(
           `\`${name}\` rule doc`,
           'rule option',
-          contentsNew,
+          contentsNewNormalized,
           namedOption,
           true,
         ); // Each rule option is mentioned.
@@ -287,14 +297,22 @@ export async function generate(path: string, userOptions?: GenerateOptions) {
 
     // Update the rules list in this file.
     const fileContents = await readFile(pathToFile, 'utf8');
+
+    // Normalize to LF for processing; restore this file's end of line before write.
+    const endOfLine = await endOfLineResolver.resolve(pathToFile, fileContents);
+    const fileContentsNormalized = normalizeEndOfLine(fileContents, '\n');
+
     const rulesList = updateRulesList(
       context,
       ruleNamesAndRules,
-      fileContents,
+      fileContentsNormalized,
       pathToFile,
     );
     const fileContentsNew = await postprocess(
-      updateConfigsList(context, rulesList, isRuleListMdx),
+      normalizeEndOfLine(
+        updateConfigsList(context, rulesList, isRuleListMdx),
+        endOfLine,
+      ),
       resolve(pathToFile),
     );
 

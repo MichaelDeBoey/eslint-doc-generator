@@ -42,6 +42,7 @@ Also performs [configurable](#configuration-options) section consistency checks 
   - [Build tools](#build-tools)
   - [markdownlint](#markdownlint)
   - [prettier](#prettier)
+  - [Line endings](#line-endings)
   - [File Types](#file-types)
 - [Semantic versioning policy](#semantic-versioning-policy)
 - [Related](#related)
@@ -424,12 +425,22 @@ If you use [prettier](https://prettier.io/) to format your markdown, you can pro
 
 ```javascript
 const prettier = require('prettier');
-const { prettier: prettierRC } = require('./package.json'); // or wherever your prettier config lies
 
 /** @type {import('eslint-doc-generator').GenerateOptions} */
 const config = {
-  postprocess: (content, path) =>
-    prettier.format(content, { ...prettierRC, parser: 'markdown' }),
+  postprocess: async (content, path) => {
+    // Skip files that Prettier is configured to ignore.
+    const fileInfo = await prettier.getFileInfo(path, {
+      ignorePath: '.prettierignore',
+    });
+    if (fileInfo.ignored) {
+      return content;
+    }
+
+    // Resolve the Prettier config for this file path (including overrides).
+    const options = await prettier.resolveConfig(path, { editorconfig: true });
+    return prettier.format(content, { ...options, filepath: path });
+  },
 };
 
 module.exports = config;
@@ -444,6 +455,18 @@ Alternatively, you can configure your scripts to run `prettier` after this tool:
   "update:eslint-docs": "eslint-doc-generator && npm run format"
 }
 ```
+
+### Line endings
+
+Markdown is processed using LF (`\n`) line endings internally. When writing each file, the end of line is chosen in this order:
+
+1. An **explicit** EditorConfig [`end_of_line`](https://editorconfig.org/) (`lf` / `crlf`) for that file path
+2. The predominant end of line already present in the file
+3. `os.EOL` (new files and files with no line breaks)
+
+Only `lf` and `crlf` are honored from EditorConfig; other values such as `cr` are treated as unset. Prettier config is not consulted for line endings. To apply Prettier (including its `endOfLine`, ignores, and overrides), run Prettier itself via the [`postprocess`](#prettier) hook or after generation.
+
+When EditorConfig sets `end_of_line`, files that use a different end of line are converted on the next run (a one-time diff), and `--check` fails until they match. Without an EditorConfig `end_of_line`, existing file endings are preserved and `--check` compares against those.
 
 ### File Types
 

@@ -481,7 +481,6 @@ export function generateRuleHeaderLines(
   isMdx: boolean,
 ): string {
   const {
-    endOfLine,
     options: { framework },
   } = context;
 
@@ -492,5 +491,5 @@ export function generateRuleHeaderLines(
     ...getRuleNoticeLines(context, name),
     '',
     formatComment(END_RULE_HEADER_MARKER, isMdx),
-  ].join(endOfLine);
+  ].join('\n');
 }

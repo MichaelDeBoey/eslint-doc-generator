@@ -19,19 +19,16 @@ export function generateFrontmatterLines(
   frontmatterOld: string | undefined,
 ): string {
   const {
-    endOfLine,
     options: { framework },
   } = context;
   const title = makeRuleDocTitle(context, name, description);
 
-  const oldFrontmatterLines = frontmatterOld
-    ? frontmatterOld.split(endOfLine)
-    : [];
+  const oldFrontmatterLines = frontmatterOld ? frontmatterOld.split('\n') : [];
 
   // If the framework is 'none', then just bail out and return the old frontmatter.
   // We don't want to change anything.
   if (framework === 'none') {
-    return oldFrontmatterLines.join(endOfLine);
+    return oldFrontmatterLines.join('\n');
   }
 
   // If there is currently no frontmatter, then create a new one with the title and description.
@@ -43,7 +40,7 @@ export function generateFrontmatterLines(
       );
     }
     newFrontmatter.push('---');
-    return newFrontmatter.join(endOfLine);
+    return newFrontmatter.join('\n');
   }
 
   const newFrontmatter = [];
@@ -78,5 +75,5 @@ export function generateFrontmatterLines(
       formatFrontmatterProperty('description', description),
     );
   }
-  return newFrontmatter.join(endOfLine);
+  return newFrontmatter.join('\n');
 }

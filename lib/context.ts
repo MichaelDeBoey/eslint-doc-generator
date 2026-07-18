@@ -1,5 +1,4 @@
 import { mockPlugin } from './mock-plugin.js';
-import { getEndOfLine } from './eol.js';
 import { getResolvedOptions } from './options.js';
 import type { ResolvedGenerateOptions } from './options.js';
 import { getPluginName, loadPlugin } from './package-json.js';
@@ -8,12 +7,14 @@ import { getPluginPrefix } from './plugin-prefix.js';
 import { resolveConfigsToRules } from './plugin-config-resolution.js';
 
 /**
- * Context about the current invocation of the program, like what end-of-line
- * character to use.
+ * Context about the current invocation of the program.
+ *
+ * Note: all markdown content is processed using LF (`\n`) line endings
+ * internally. The desired end of line for each file is only applied when
+ * writing the file in the generator.
  */
 export interface Context {
   configsToRules: ConfigsToRules;
-  endOfLine: string;
   options: ResolvedGenerateOptions;
   path: string;
   plugin: Plugin;
@@ -25,7 +26,6 @@ export async function getContext(
   userOptions?: GenerateOptions,
   useMockPlugin = false,
 ): Promise<Context> {
-  const endOfLine = await getEndOfLine();
   const plugin = useMockPlugin ? mockPlugin : await loadPlugin(path);
   const pluginPrefix = getPluginPrefix(
     plugin.meta?.name ?? (await getPluginName(path)),
@@ -36,7 +36,6 @@ export async function getContext(
 
   return {
     configsToRules,
-    endOfLine,
     options,
     path,
     plugin,

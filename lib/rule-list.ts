@@ -162,7 +162,7 @@ function generateRulesListMarkdown(
   });
 
   return markdownTable(
-    sanitizeMarkdownTable(context, [
+    sanitizeMarkdownTable([
       listHeaderRow,
       ...ruleNamesAndRules.map(([name, rule]) =>
         buildRuleRow(context, name, rule, columns, pathToFile),
@@ -186,7 +186,6 @@ function generateRuleListMarkdownForRulesAndHeaders(
   columns: Record<COLUMN_TYPE, boolean>,
   pathToFile: string,
 ): string {
-  const { endOfLine } = context;
   const parts: string[] = [];
 
   for (const { title, rules, description } of rulesAndHeaders) {
@@ -199,7 +198,7 @@ function generateRuleListMarkdownForRulesAndHeaders(
     parts.push(generateRulesListMarkdown(context, rules, columns, pathToFile));
   }
 
-  return parts.join(`${endOfLine}${endOfLine}`);
+  return parts.join('\n\n');
 }
 
 /**
@@ -312,7 +311,7 @@ export function updateRulesList(
   markdown: string,
   pathToFile: string,
 ): string {
-  const { endOfLine, path, options } = context;
+  const { path, options } = context;
   const { ruleListSplit } = options;
 
   const isMdx = pathToFile.endsWith('.mdx');
@@ -326,7 +325,7 @@ export function updateRulesList(
   let listEndIndex = markdown.indexOf(formattedRuleListMarkerEnd);
 
   // Find the best possible section to insert the rules list into if the markers are missing.
-  const rulesSectionHeader = findSectionHeader(context, markdown, 'rules');
+  const rulesSectionHeader = findSectionHeader(markdown, 'rules');
   const rulesSectionIndex = rulesSectionHeader
     ? markdown.indexOf(rulesSectionHeader)
     : -1;
@@ -438,7 +437,7 @@ export function updateRulesList(
     pathToFile,
   );
 
-  const newContent = `${legend ? `${legend}${endOfLine}${endOfLine}` : ''}${list}`;
+  const newContent = `${legend ? `${legend}\n\n` : ''}${list}`;
 
-  return `${preList}${formattedRuleListMarkerBegin}${endOfLine}${endOfLine}${newContent}${endOfLine}${endOfLine}${formattedRuleListMarkerEnd}${postList}`;
+  return `${preList}${formattedRuleListMarkerBegin}\n\n${newContent}\n\n${formattedRuleListMarkerEnd}${postList}`;
 }

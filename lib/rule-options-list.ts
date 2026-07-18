@@ -8,7 +8,6 @@ import type { RuleModule } from './types.js';
 import { getAllNamedOptions } from './rule-options.js';
 import type { RuleOption } from './rule-options.js';
 import { sanitizeMarkdownTable } from './string.js';
-import type { Context } from './context.js';
 
 const COLUMN_TYPE = {
   // Alphabetical order.
@@ -113,10 +112,7 @@ function ruleOptionsToColumnsToDisplay(ruleOptions: readonly RuleOption[]): {
   return columnsToDisplay;
 }
 
-function generateRuleOptionsListMarkdown(
-  context: Context,
-  rule: RuleModule,
-): string {
+function generateRuleOptionsListMarkdown(rule: RuleModule): string {
   const ruleOptions = getAllNamedOptions(
     rule.meta?.schema,
     rule.meta?.defaultOptions,
@@ -145,19 +141,16 @@ function generateRuleOptionsListMarkdown(
     });
 
   return markdownTable(
-    sanitizeMarkdownTable(context, [listHeaderRow, ...rows]),
+    sanitizeMarkdownTable([listHeaderRow, ...rows]),
     { align: 'l' }, // Left-align headers.
   );
 }
 
 export function updateRuleOptionsList(
-  context: Context,
   markdown: string,
   rule: RuleModule,
   isMdx: boolean,
 ): string {
-  const { endOfLine } = context;
-
   const formattedRuleOptionsListMarkerBegin = formatComment(
     BEGIN_RULE_OPTIONS_LIST_MARKER,
     isMdx,
@@ -182,7 +175,7 @@ export function updateRuleOptionsList(
   const postList = markdown.slice(Math.max(0, listEndIndex));
 
   // New rule options list.
-  const list = generateRuleOptionsListMarkdown(context, rule);
+  const list = generateRuleOptionsListMarkdown(rule);
 
-  return `${preList}${formattedRuleOptionsListMarkerBegin}${endOfLine}${endOfLine}${list}${endOfLine}${endOfLine}${formattedRuleOptionsListMarkerEnd}${postList}`;
+  return `${preList}${formattedRuleOptionsListMarkerBegin}\n\n${list}\n\n${formattedRuleOptionsListMarkerEnd}${postList}`;
 }
